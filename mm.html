@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>시니의 무림 DB 갤러리 (m)</title>
+    <style>
+        body { background-color: #0f0f0f; color: #e0e0e0; font-family: 'Pretendard', sans-serif; margin: 0; padding: 20px; }
+        h1 { color: #d32f2f; text-align: center; border-bottom: 2px solid #d32f2f; padding-bottom: 10px; }
+        .container { max-width: 1300px; margin: 0 auto; }
+        .tabs { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-bottom: 20px; }
+        .tab-btn { background: #333; color: #fff; border: none; padding: 10px 15px; border-radius: 5px; cursor: pointer; transition: 0.3s; font-weight: bold; }
+        .tab-btn.active { background: #d32f2f; color: #fff; box-shadow: 0 0 10px rgba(211, 47, 47, 0.5); }
+        .controls { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; justify-content: center; background: #1a1a1a; padding: 15px; border-radius: 10px; border: 1px solid #333; }
+        select, input, button { padding: 10px; border-radius: 5px; border: 1px solid #444; background: #2a2a2a; color: #fff; font-size: 14px; }
+        .copy-main { background: #d32f2f; color: #fff; font-weight: bold; cursor: pointer; border: none; }
+        .copy-main:hover { background: #b71c1c; transform: scale(1.05); }
+        .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
+        .card { background: #1a1a1a; padding: 15px; border-radius: 10px; text-align: center; border: 1px solid #333; transition: 0.3s; }
+        .card:hover { border-color: #d32f2f; transform: translateY(-5px); }
+        .card img { max-width: 100%; height: auto; border-radius: 5px; background: #000; min-height: 200px; }
+        .card p { margin: 10px 0 5px; font-size: 13px; color: #fff; font-weight: bold; }
+        .card span { font-size: 11px; color: #888; display: block; word-break: break-all; margin-bottom: 10px; }
+        .copy-btn { width: 100%; background: #444; color: #fff; border: none; padding: 5px; margin-top: 5px; border-radius: 3px; cursor: pointer; font-size: 11px; }
+        .copy-btn:hover { background: #666; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>🔥 시니의 무림(m) 이미지 갤러리 🔥</h1>
+    
+    <div class="tabs" id="tabContainer">
+        <button class="tab-btn active" onclick="showCategory('char')">캐릭터</button>
+        <button class="tab-btn" onclick="showCategory('place')">장소/감옥</button>
+        <button class="tab-btn" onclick="showCategory('monster')">몬스터</button>
+        <button class="tab-btn" onclick="showCategory('item')">아이템</button>
+        <button class="tab-btn" onclick="showCategory('skill')">스킬</button>
+        <button class="tab-btn" onclick="showCategory('scene')">장면</button>
+    </div>
+
+    <div class="controls">
+        <input type="text" id="searchInput" placeholder="이름으로 검색..." oninput="render()">
+        <select id="emotionSelect" onchange="render()">
+            <option value="기본">감정: 기본</option>
+            <option value="공격">감정: 공격</option>
+            <option value="분노">감정: 분노</option>
+            <option value="미소">감정: 미소</option>
+            <option value="슬픔">감정: 슬픔</option>
+            <option value="당황">감정: 당황</option>
+        </select>
+        <button class="copy-main" onclick="copyAll()">현재 리스트 주소 전체 복사</button>
+    </div>
+
+    <div id="gallery" class="gallery"></div>
+</div>
+
+<script>
+    const BASE_URL = "https://raw.githubusercontent.com/zu90/m/main/";
+    let currentCategory = 'char';
+
+    const db = {
+        char: "백운휘,남궁설,진무경,서이연,류신우,혜안,법강,묘린,공우,설아,백하린,윤서령,강유진,하진욱,서준혁,강진혁,명화,대웅,가린,하율,강철한,연설희,소무진,명린,위태윤,천무상,연서하,진기혜,소령,휘,연사진,묘아,단유성,귀망,파혁,설화,묵영,염천강,도무현,화서희,설연,백리운,진광휘,모용슬,백호,연화".split(','),
+        place: "사형옥,실험옥,봉인옥,천형옥,진법옥,화옥,빙옥,독옥,환옥,무명옥,혈옥,심연옥,지하감옥,흑영산채,마을_밤,개울_밤,객잔_밤,기루_밤,꽃밭_밤,나루터_밤,낚시성공시_밤,마을초입_밤,밀림_밤,바다_밤,바다_오전,상업도시_밤,숲_밤,약방_밤,어촌_밤,연못_밤,연못_오전,온천_밤,이동중_밤,일반동굴_밤,장터_밤,절벽_밤,죽림_밤,폭포_밤,항구_밤,호수_밤,호수_오전,만독비취림,심연명수량,폐가,광폭산림역,마을게시판,동굴_낮,기루_낮,객잔_낮,절벽_낮,암시장,이동중_낮,밀림_낮,나루터_낮,죽림_낮,숲_낮,마을초입_낮,낚시_낮,개울_낮,어촌_낮,상업도시_낮,항구_낮,마을_낮,꽃밭_낮,온천_낮,약방_낮,책방_낮,폭포_낮,결혼식장,비무대,설산,청궁연문,거산권방,자비곤사,청운검종,혈사만화원,영환전,뇌정창방,적염도문,명왕수라총,황궁전경_낮,황궁내전_낮,황제집무실,황제어좌,황궁회의실,황궁정원_낮,황궁연회장,황궁비밀통로,후궁전침실,황제침실,황궁정문_낮,황궁전경_밤,황궁내전_밤,황궁정원_밤,황궁정문_밤,노비침실,광산,노비시장,매질장,포로수용소,갈대밭_낮,갈대밭_밤,낙양_낮,낙양_밤,새외&막북_낮,새외&막북_밤,성도_낮,성도_밤,양주_낮,양주_밤,운남&묘족마을_낮,운남&묘족마을_밤,항주_낮,항주_밤,화산&무당산_낮,화산&무당산_밤,장안_낮,장안_밤,객잔내부,기루내부,마구간_낮,마구간_밤,빈민가_낮,빈민가_밤,장터_낮,주막_낮,주막_밤,황야_낮,황야_밤,푸줏간,군마사육지,농경지_낮,농경지_밤,막사_낮,막사_밤,벌목장,수로제방공사,제철소,환락가_낮,환락가_밤,빨래터_낮,빨래터_밤,운해검로,백운연무장,외문숙소a,청운정심벽,종주전a,수련실a,염화지,혈염투장,내문전각b,적열전,용맥심층,외문선방c,장경각,내문선방c,금강수련장,자비사입산계단,대웅전,거산입구,중력연무장,묵향수련각,금강수련실,종주전d,외문풍각e,비절연무장e,풍운관문,청궁전,전격연무장,외문병영f,진법지휘실f,내문병영f,뇌전수련실f,방주전f,영환전마당,독천연무장,만상정보각,만월당,적화만발전,만화곡외문화원,혈사연무장,만화곡입구,낙혼연무장,명왕전,혈혼저장소,명왕수라총묘지,사체개조실,낙염당마당,낙염당부엌,낙염당숙소,낙염당연무장,낙염당장부실,낙염당지하실,낙염당창고,수레보관소,표국주실".split(','),
+        monster: "마안수,마기짐승,혈의망령,혈시,비천야자,유사사충,사귀,철부리독수리,연화식혼괴,심연현수,흑수아귀,수귀,덩굴포식식물,안개식인림,청목영사,기생포자,수정령원,바위거북,수룡어,수압영수,결정수호령,응룡,청룡,기린,황금석상무사,보물수호귀,독수호수,환각보석괴,빙혼수,천년빙익황,뇌정백린호,빙아랑,여왕충,참수사마귀,천독지주,식혈개미군,환각독두꺼비,암석철웅,강철멧돼지,비영살쾡이,무뢰파락호,명계시견,초혼괴인,청동강시,청죽목괴,죽엽환영,철우취조,죽림비서,흑풍비적,철갑산도,독영궁사,혈사검객,괴목혼박,석갑천산수,혈린거파,청안비사,귀각거아귀,천공침어,환각유령어,명해전기어,산림맹호,광폭불곰,철갑흑곰,암벽광원,석갑거구,천공수리,철아광돈,강철악어,들쥐,산적패_기습,살수_기습,들개,독사,지네,전갈,까마귀떼,흑야조,청익조,천안금오,천공비조,적화조".split(','),
+        item: "천명검,천뢰검,청운쌍검,절혼검,무극검,파천곤,금강봉,멸업혈봉,백골염주봉,천지개벽곤,천살궁,백설빙백궁,무영흑궁,멸혼폭염궁,교룡골궁,흑염마갑,수라귀권,금강불괴수,파쇄철권,빙룡발톱,흑월창,독룡장창,혈혼사창,천풍창,적염용창,환몽접선,사혼요선,백옥비선,흑익마선,매혹의독선,혼백속박편,독아혈편,수라골편,뇌정은편,피갈망생체줄,사혼낫,명왕참혼겸,적염파열겸,월식흑겸,피의수확자,혈천마도,혈염도,홍련도,귀면도,용암절단도".split(','),
+        skill: "명왕참수형,수라낙혼참,혈혼수확,귀영섬보,사령심경,혈화섬보,적염심경,아수라참,혈염낙인,아수라멸세염,뇌정심결,전광보,일점무잔창,뇌망,철혈연환창,만화마향무,만월월식참,천기미혼풍,몽환무영보,독천령심결,만사심결,유영사보,비음파동편,영사결박,혈사만화환,운해미종보,청운출수공,청운만화검,청운삼십육검,만화취검,금강부동심결,법륜보,참회봉법,명왕진압,천수관음곤,거산강기심결,파천대지장,운필유룡장,태산압정권,천근추보,천궁멸살,풍신관통시,연궁쇄살,유풍보,청궁심법".split(','),
+        scene: "운기조식,수련중,경지돌파,운송중,전쟁중,혈계,봄,겨울,가을,여름,약초발견,비급발견,문과시험,무과시험,노비압송행렬,대역죄인압송,사면령,시민반란,역병창궐,황궁쿠테타,의형제맺는순간,밤이될때,아침이될때,능지처참,대홍수,메뚜기떼창궐,말타고이동1인_낮,말타고이동1인_밤,말타고이동2인_낮,말타고이동2인_밤,배탑승_낮,배탑승_밤,관청공사현장,광산노비들".split(',')
+    };
+
+    function showCategory(cat) {
+        currentCategory = cat;
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        event.target.classList.add('active');
+        document.getElementById('emotionSelect').style.display = cat === 'char' ? 'inline-block' : 'none';
+        render();
+    }
+
+    function render() {
+        const gallery = document.getElementById('gallery');
+        const search = document.getElementById('searchInput').value.toLowerCase();
+        const emo = document.getElementById('emotionSelect').value;
+        gallery.innerHTML = '';
+
+        db[currentCategory].forEach(item => {
+            if (!item.toLowerCase().includes(search)) return;
+
+            let fileName = item;
+            if (currentCategory === 'char') fileName += `_${emo}`;
+            const fullUrl = `${BASE_URL}${fileName}.png`;
+
+            const card = document.createElement('div');
+            card.className = 'card';
+            card.innerHTML = `
+                <img src="${fullUrl}" onerror="this.src='https://via.placeholder.com/280x200?text=이미지+대기중'">
+                <p>${fileName}</p>
+                <span>${fullUrl}</span>
+                <button class="copy-btn" onclick="copyText('${fullUrl}')">주소 복사</button>
+                <button class="copy-btn" onclick="copyText('![${fileName}](${fullUrl})')">마크다운 복사</button>
+            `;
+            gallery.appendChild(card);
+        });
+    }
+
+    function copyText(text) {
+        navigator.clipboard.writeText(text);
+        alert('무림의 정보가 복사되었습니다!');
+    }
+
+    function copyAll() {
+        const links = Array.from(document.querySelectorAll('.card span')).map(s => s.innerText).join('\n');
+        navigator.clipboard.writeText(links);
+        alert('현재 화면의 모든 주소가 복사되었습니다!');
+    }
+
+    render();
+</script>
+
+</body>
+</html>
